@@ -1,36 +1,44 @@
-import websocket
-try:
-    import thread
-except ImportError:
-    import _thread as thread
-import time
+from websocket import create_connection
+import json
+import numpy as np
+from skimage.io import imsave
 
-def on_message(ws, message):
-    print(message)
 
-def on_error(ws, error):
-    print(error)
+ws = create_connection("wss://sprs.herokuapp.com/first/[session-id]")
+ws.send(json.dumps( { "data": { "message": "Let's start"} }))
 
-def on_close(ws):
-    print("### closed ###")
+params =  json.loads(ws.recv())
 
-def on_open(ws):
-    def run(*args):
-        for i in range(3):
-            time.sleep(1)
-            ws.send("Hello %d" % i)
-        time.sleep(1)
-        ws.close()
-        print("thread terminating...")
-    thread.start_new_thread(run, ())
+width = params["data"]["width"]
+height = params["data"]["height"]
+number = params["data"]["number"]
 
-if __name__ == "__main__":
-    websocket.enableTrace(True)
-    ws = websocket.WebSocketApp("ws://echo.websocket.org/",
-                              on_open = on_open,
-                              on_message = on_message,
-                              on_error = on_error,
-                              on_close = on_close)
+noise = 0
+shuffle = False
+totalSteps = 10
+ws.send( json.dumps( { "data": { "width": width, "height": height, "totalSteps": totalSteps, "noise": noise, "shuffle": shuffle } } ) )
 
-    ws.run_forever()
- 
+digit_matrix = json.loads(ws.recv())
+matrix = []
+for digit in digit_matrix["data"]:
+    matrix.append( digit_matrix["data"][digit])
+matrix_seq = np.array(matrix)
+
+ws.send( json.dumps( { "data": { "message": "Ready" } } ) )
+problem = json.loads(ws.recv())
+
+currentStep = problem["data"]["currentStep"] # number of problem
+matrix = problem["data"]["matrix"] # problem in matrix form
+
+answer = matrix
+ws.send(json.dumps({ "data": { "step": currentStep, "answer": answer } }))
+
+
+#ws.send( json.dumps( { "data": { "message": "Ready" } } ) )
+#ws.send( json.dumps( { "data": { "message": "Bye" } } ) )
+#new_problem = json.loads(ws.recv())
+#print(new_problem)
+
+
+
+ws.close()
