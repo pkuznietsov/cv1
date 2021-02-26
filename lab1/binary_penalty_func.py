@@ -24,9 +24,7 @@ def get_digits(ws):
     for d in digit_matrix["data"]:
         matrix.append( digit_matrix["data"][d] )
         digit.append( d )
-        imsave(path.absolute().as_posix() + '/from_server' + '/image' + d + '.jpg', np.array(digit_matrix["data"][d]))
-    matrix = np.array(matrix)
-    digit = np.array(digit)
+        imsave(path.absolute().as_posix() + '/from_server' + '/origs' + '/image' + d + '.jpg', np.array(digit_matrix["data"][d]), check_contrast=False)
     return digit, matrix
 
 def ready(ws):
@@ -34,11 +32,16 @@ def ready(ws):
 
 def get_problem(ws):
     problem = json.loads(ws.recv())
-    imsave(path.absolute().as_posix() + '/from_server' + '/problem.jpg', np.array(problem["data"]["matrix"]))
+    imsave(path.absolute().as_posix() + '/from_server' + '/probs' + '/problem' + str(problem["data"]["currentStep"]) + '.jpg', np.array(problem["data"]["matrix"]), check_contrast=False)
     return problem["data"]["currentStep"], problem["data"]["matrix"]
 
 def solution(digit_set, matrix_set, step, matrix):
-    return matrix
+    matrix = np.array(matrix)
+    matrix_set = np.array(matrix_set)
+    digit_set = np.array(digit_set)
+
+    sample = [ np.count_nonzero((m + matrix)%2) for m in matrix_set]
+    return str(np.amin(np.argmin(sample)))
 
 def send_solution(ws, step, answer):
     ws.send(json.dumps({ "data": { "step": step, "answer": answer } }))
@@ -59,22 +62,22 @@ start(ws)
 
 width, height, number = get_params(ws)
 
-totalSteps = 10
+totalSteps = 15
 send_params(ws, totalSteps = totalSteps, noise = 0, shuffle = False)
 
 digit_set, matrix_set = get_digits(ws)
 
-ready(ws)
-step, matrix = get_problem(ws)
-answer = solution(digit_set, matrix_set, step, matrix)
-send_solution(ws, step, answer)
-right_solution = json.loads(ws.recv())
 
-print("------------")
-print(right_solution)
-print("------------")
-
-
+step = 0
+print("----------SOLUTIONS----------")
+while step < totalSteps:
+    ready(ws)
+    step, matrix = get_problem(ws)
+    answer = solution(digit_set, matrix_set, step, matrix)
+    send_solution(ws, step, answer)
+    right_solution = json.loads(ws.recv())
+    print("step: ", step, "my soulution: ", answer, "right_solution: ", right_solution["data"]["solution"])
+print("----------SOLUTIONS----------")
 
 send_bye(ws)
 print("done: ", get_report(ws), " out of: ", totalSteps)
